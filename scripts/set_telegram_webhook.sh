@@ -12,7 +12,7 @@ if [[ -z "${TELEGRAM_WEBHOOK_SECRET:-}" ]]; then
 fi
 
 PUBLIC_BASE_URL="${PUBLIC_BASE_URL:-https://diegodella.ar}"
-API_PREFIX="${API_PREFIX:-}"
+API_PREFIX="${API_PREFIX:-/landings}"
 WEBHOOK_URL="${PUBLIC_BASE_URL%/}${API_PREFIX}/api/telegram"
 
 echo "Registering Telegram webhook:"
