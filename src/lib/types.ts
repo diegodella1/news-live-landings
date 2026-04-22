@@ -4,6 +4,7 @@ export type Materiality = "NO_MATERIAL_CHANGE" | "MINOR" | "IMPORTANT" | "CRITIC
 
 export type AgentName =
   | "telegramGateway"
+  | "discover"
   | "research"
   | "writer"
   | "designer"

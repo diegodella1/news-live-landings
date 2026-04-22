@@ -12,7 +12,7 @@ const isLongRunningCommand = (update: unknown) => {
 
   if (typeof text !== "string") return false;
   const command = text.trim().split(/\s+/)[0];
-  return command === "/start_live" || command === "/force_update";
+  return command === "/start_live" || command === "/force_update" || command === "/discover_live";
 };
 
 export async function POST(request: NextRequest) {

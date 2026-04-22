@@ -1,5 +1,6 @@
 import { env } from "./config";
 import { getLandingBySlug, listLandings, recordTelegramEvent, summarizeTokenUsageSince, updateLandingStatus } from "./db";
+import { discoverLiveTopic } from "./agents/discover";
 import { publicFinalUrl, runLiveCycleForLanding, startLiveLanding } from "./pipeline";
 import { slugify } from "./slug";
 import type { LandingRecord } from "./types";
@@ -47,6 +48,7 @@ const assertAllowedChat = (chatId: string | number) => {
 
 const helpText = () => [
   "Live news landing commands:",
+  "/discover_live [hint]",
   "/start_live <topic>",
   "/status <slug_or_topic>",
   "/force_update <slug_or_topic>",
@@ -116,6 +118,23 @@ export const handleTelegramUpdate = async (update: TelegramUpdate) => {
         .join("\n");
       await sendTelegramMessage(chatId, [`LANDINGS INDEX: ${env.landingsIndexUrl}`, latest].filter(Boolean).join("\n"));
       return { ok: true };
+    }
+
+    if (command === "/discover_live") {
+      const startedAt = new Date().toISOString();
+      await sendTelegramMessage(chatId, `DISCOVERY STARTED${arg ? ` | hint=${arg}` : ""}`);
+      const discovery = await discoverLiveTopic(arg);
+      await sendTelegramMessage(
+        chatId,
+        `TOPIC SELECTED | topic=${discovery.selectedTopic} | reason=${discovery.selectedRationale.slice(0, 700)}`
+      );
+
+      const existing = getLandingBySlug(slugify(discovery.selectedTopic));
+      const landing =
+        existing && !retryableStatuses.has(existing.status) ? existing : await startLiveLanding(discovery.selectedTopic);
+      await sendTelegramMessage(chatId, landingStatusMessage(landing));
+      await sendTelegramMessage(chatId, tokenUsageMessage(startedAt));
+      return { ok: true, slug: landing.slug, topic: discovery.selectedTopic };
     }
 
     if (command === "/start_live") {

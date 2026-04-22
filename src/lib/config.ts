@@ -20,6 +20,7 @@ export const env = {
 export const modelForAgent = (agent: AgentName) => {
   const explicit: Partial<Record<AgentName, string | undefined>> = {
     telegramGateway: process.env.TELEGRAM_GATEWAY_MODEL,
+    discover: process.env.DISCOVER_MODEL,
     research: process.env.RESEARCH_MODEL,
     writer: process.env.WRITER_MODEL,
     designer: process.env.DESIGNER_MODEL,
