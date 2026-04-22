@@ -69,7 +69,9 @@ const landingStatusMessage = (landing: LandingRecord) => {
   }
 
   if (landing.status === "blocked") {
-    return `BLOCKED | topic=${landing.topic} | slug=${landing.slug} | status=${landing.status}`;
+    const blocker = landing.content.updateHistory.find(update => update.materiality === "BLOCKER");
+    const reason = blocker?.summary ? ` | reason=${blocker.summary.slice(0, 700)}` : "";
+    return `BLOCKED | topic=${landing.topic} | slug=${landing.slug} | status=${landing.status}${reason}`;
   }
 
   return `IN PROGRESS | topic=${landing.topic} | slug=${landing.slug} | status=${landing.status}`;

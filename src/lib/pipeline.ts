@@ -36,24 +36,23 @@ export const startLiveLanding = async (topic: string) => {
   const critic = await runCritic(draft.content, draft.id);
 
   if (!critic.approved) {
-    updateLandingStatus(draft.id, "blocked");
-    return {
-      ...draft,
-      status: "blocked" as const,
-      content: {
+    return updateLandingContent(
+      draft.id,
+      {
         ...draft.content,
-        status: "blocked" as const,
+        status: "blocked",
         updateHistory: [
           {
             timestampUtc: new Date().toISOString(),
-            materiality: "BLOCKER" as const,
+            materiality: "BLOCKER",
             summary: critic.summary,
             sourceUrls: []
           },
           ...draft.content.updateHistory
         ]
-      }
-    };
+      },
+      "blocked"
+    );
   }
 
   return updateLandingContent(draft.id, { ...draft.content, status: "live" }, "live");
