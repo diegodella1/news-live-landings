@@ -14,18 +14,37 @@ import { runDesigner, runDesignerRevision } from "./agents/designer";
 import { deltaHash, runLiveMonitor, runLiveUpdater } from "./agents/live";
 import { runResearch } from "./agents/research";
 import { runWriter } from "./agents/writer";
+import type { LandingContent, LandingRecord } from "./types";
+
+const retryableStatuses = new Set(["blocked", "cancelled", "failed"]);
+const maxCriticRepairAttempts = 3;
+
+const createOrRestartDraft = (input: { existing: LandingRecord | null; content: LandingContent; slug: string; topic: string }) => {
+  const content = {
+    ...input.content,
+    slug: input.slug,
+    topic: input.topic,
+    status: "critic_review" as const
+  };
+
+  if (input.existing && retryableStatuses.has(input.existing.status)) {
+    return updateLandingContent(input.existing.id, content, "critic_review");
+  }
+
+  return createLanding(content);
+};
 
 export const startLiveLanding = async (topic: string) => {
   const slug = slugify(topic);
   const existing = getLandingBySlug(slug);
-  if (existing) return existing;
+  if (existing && !retryableStatuses.has(existing.status)) return existing;
 
   const research = await runResearch(topic);
   const writing = await runWriter(research);
   const designed = await runDesigner(topic, research, writing);
   let draft;
   try {
-    draft = createLanding({ ...designed, slug, topic, status: "critic_review" });
+    draft = createOrRestartDraft({ existing, content: designed, slug, topic });
   } catch (error) {
     if (String(error).includes("UNIQUE constraint failed")) {
       const landing = getLandingBySlug(slug);
@@ -36,12 +55,12 @@ export const startLiveLanding = async (topic: string) => {
   let content = draft.content;
   let critic = await runCritic(content, draft.id);
 
-  if (!critic.approved && critic.severity === "changes_requested") {
+  for (let attempt = 0; !critic.approved && critic.severity === "changes_requested" && attempt < maxCriticRepairAttempts; attempt += 1) {
     content = await runDesignerRevision(content, critic, research);
     critic = await runCritic(content, draft.id);
   }
 
-  if (!critic.approved) {
+  if (!critic.approved && critic.severity === "blocked") {
     return updateLandingContent(
       draft.id,
       {
@@ -58,6 +77,26 @@ export const startLiveLanding = async (topic: string) => {
         ]
       },
       "blocked"
+    );
+  }
+
+  if (!critic.approved) {
+    return updateLandingContent(
+      draft.id,
+      {
+        ...content,
+        status: "failed",
+        updateHistory: [
+          {
+            timestampUtc: new Date().toISOString(),
+            materiality: "BLOCKER",
+            summary: `Autonomous critic repair exhausted after ${maxCriticRepairAttempts} attempts: ${critic.summary}`,
+            sourceUrls: []
+          },
+          ...content.updateHistory
+        ]
+      },
+      "failed"
     );
   }
 

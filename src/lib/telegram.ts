@@ -64,6 +64,8 @@ const findSlug = (value: string) => {
   return slugify(value);
 };
 
+const retryableStatuses = new Set(["blocked", "cancelled", "failed"]);
+
 const landingStatusMessage = (landing: LandingRecord) => {
   if (landing.status === "live") {
     return `FINAL URL READY | topic=${landing.topic} | final_url=${landing.finalUrl} | index_url=${env.landingsIndexUrl}`;
@@ -77,6 +79,10 @@ const landingStatusMessage = (landing: LandingRecord) => {
 
   if (landing.status === "cancelled") {
     return `CANCELLED | topic=${landing.topic} | slug=${landing.slug}`;
+  }
+
+  if (landing.status === "failed") {
+    return `RETRY NEEDED | topic=${landing.topic} | slug=${landing.slug} | status=${landing.status}`;
   }
 
   return `IN PROGRESS | topic=${landing.topic} | slug=${landing.slug} | status=${landing.status}`;
@@ -110,12 +116,12 @@ export const handleTelegramUpdate = async (update: TelegramUpdate) => {
     if (command === "/start_live") {
       if (!arg) throw new Error("Usage: /start_live <topic>");
       const existing = getLandingBySlug(slugify(arg));
-      if (existing) {
+      if (existing && !retryableStatuses.has(existing.status)) {
         await sendTelegramMessage(chatId, landingStatusMessage(existing));
         return { ok: true, slug: existing.slug, existing: true };
       }
 
-      await sendTelegramMessage(chatId, `PROJECT STARTED | topic=${arg} | stage=research`);
+      await sendTelegramMessage(chatId, `PROJECT STARTED | topic=${arg} | stage=research${existing ? " | mode=retry" : ""}`);
       const landing = await startLiveLanding(arg);
       await sendTelegramMessage(chatId, landingStatusMessage(landing));
       return { ok: true, slug: landing.slug };
