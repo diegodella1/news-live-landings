@@ -92,6 +92,12 @@ export const getDb = (): DatabaseSync => {
       payload_json TEXT NOT NULL,
       created_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
   `);
   ensureColumn("agent_runs", "input_tokens", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn("agent_runs", "output_tokens", "INTEGER NOT NULL DEFAULT 0");
@@ -248,6 +254,23 @@ export const recordTelegramEvent = (direction: "in" | "out", payload: unknown, c
     VALUES (?, ?, ?, ?, ?)
   `).run(direction, chatId ?? null, command ?? null, JSON.stringify(payload), now());
 };
+
+export const getAppSetting = (key: string, fallback: string) => {
+  const row = getDb().prepare("SELECT value FROM app_settings WHERE key = ?").get(key) as { value?: string } | undefined;
+  return row?.value ?? fallback;
+};
+
+export const setAppSetting = (key: string, value: string) => {
+  getDb().prepare(`
+    INSERT INTO app_settings (key, value, updated_at)
+    VALUES (?, ?, ?)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+  `).run(key, value, now());
+};
+
+export const isAutoRefreshEnabled = () => getAppSetting("auto_refresh_enabled", "true") !== "false";
+
+export const setAutoRefreshEnabled = (enabled: boolean) => setAppSetting("auto_refresh_enabled", enabled ? "true" : "false");
 
 const upsertSources = (landingId: number, sources: Source[]) => {
   const db = getDb();

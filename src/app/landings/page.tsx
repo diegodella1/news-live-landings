@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { listLandings, summarizeAllTokenUsage } from "@/lib/db";
+import { isAutoRefreshEnabled, listLandings, summarizeAllTokenUsage } from "@/lib/db";
 import { env } from "@/lib/config";
+import { AutoRefreshToggle } from "./AutoRefreshToggle";
 import styles from "./page.module.css";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +38,7 @@ export default function LandingsIndexPage() {
   const liveLandings = allLandings.filter(landing => landing.status === "live");
   const tokenUsage = summarizeAllTokenUsage();
   const latest = liveLandings[0];
+  const autoRefreshEnabled = isAutoRefreshEnabled();
   const lastCycleAt = liveLandings
     .map(landing => landing.lastCycleAt)
     .filter((value): value is string => Boolean(value))
@@ -91,8 +93,13 @@ export default function LandingsIndexPage() {
       <section className={styles.monitor} aria-label="Live update monitor">
         <div>
           <p className={styles.kicker}>Update Monitor</p>
-          <h2>Live agent checks for material updates every {intervalMinutes} minutes.</h2>
+          <h2>
+            {autoRefreshEnabled
+              ? `Live agent checks for material updates every ${intervalMinutes} minutes.`
+              : "Automatic update checks are currently disabled."}
+          </h2>
           <span>Telegram only receives a message when an update is actually published.</span>
+          <AutoRefreshToggle initialEnabled={autoRefreshEnabled} />
         </div>
         <div className={styles.monitorStats}>
           <div>

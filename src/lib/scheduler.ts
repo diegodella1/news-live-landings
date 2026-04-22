@@ -1,10 +1,12 @@
 import { env } from "./config";
+import { isAutoRefreshEnabled } from "./db";
 import { runAllLiveCycles } from "./pipeline";
 import { notifyTelegram } from "./telegram";
 
 let started = false;
 
 export const runScheduledLiveCycle = async () => {
+  if (!isAutoRefreshEnabled()) return [];
   const results = await runAllLiveCycles();
   for (const result of results) {
     if (result.updated && result.monitor) {

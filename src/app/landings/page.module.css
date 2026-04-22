@@ -124,6 +124,69 @@
   line-height: 1.5;
 }
 
+.toggleOn,
+.toggleOff {
+  display: inline-flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 260px;
+  min-height: 48px;
+  margin-top: 22px;
+  padding: 6px 6px 6px 16px;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+  background: rgba(6, 7, 7, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+}
+
+.toggleOn {
+  border-color: rgba(26, 231, 132, 0.44);
+}
+
+.toggleOff {
+  border-color: rgba(231, 0, 11, 0.44);
+}
+
+.toggleOn span,
+.toggleOff span,
+.toggleOn strong,
+.toggleOff strong {
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.toggleOn span {
+  color: #1ae784;
+}
+
+.toggleOff span {
+  color: #ff6b72;
+}
+
+.toggleOn strong,
+.toggleOff strong {
+  padding: 10px 14px;
+  color: #060707;
+  background: #1ae784;
+  border-radius: 999px;
+}
+
+.toggleOff strong {
+  background: #ff6b72;
+}
+
+.toggleOn:disabled,
+.toggleOff:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
 .monitorStats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
