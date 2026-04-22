@@ -1,22 +1,22 @@
 :root {
   --font-display: "Space Grotesk", "Work Sans", "Arial Narrow", system-ui, sans-serif;
   --font-body: "Work Sans", "Segoe UI", system-ui, sans-serif;
-  --surface: #121414;
-  --surface-lowest: #0d0e0e;
-  --surface-low: #1b1c1c;
-  --surface-container: #1f2020;
-  --surface-high: #292a2a;
-  --on-surface: #e3e2e2;
-  --on-variant: #e6bcbd;
-  --outline: #ad8888;
-  --outline-variant: #5d3f40;
-  --primary: #ffb3b5;
-  --primary-hot: #ff5167;
-  --secondary: #e9b3ff;
-  --secondary-hot: #7d01b1;
-  --tertiary: #74d1ff;
-  --tertiary-hot: #149ccb;
-  --signal-green: #1ae784;
+  --surface: #18181b;
+  --surface-lowest: #121216;
+  --surface-low: #202024;
+  --surface-container: #27272a;
+  --surface-high: #3f3f46;
+  --on-surface: #f4f4f5;
+  --on-variant: #a1a1aa;
+  --outline: rgba(244, 244, 245, 0.14);
+  --outline-variant: rgba(244, 244, 245, 0.08);
+  --primary: #d6ff5f;
+  --primary-hot: #d6ff5f;
+  --secondary: #f4f4f5;
+  --secondary-hot: #e4e4e7;
+  --tertiary: #d6ff5f;
+  --tertiary-hot: #c3ef46;
+  --signal-green: #d6ff5f;
   --safe-area: 32px;
   --gutter: 20px;
 }
@@ -35,13 +35,7 @@ body {
   margin: 0;
   min-height: 100vh;
   font-family: var(--font-body), sans-serif;
-  background:
-    linear-gradient(90deg, rgba(255, 179, 181, 0.04) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(116, 209, 255, 0.035) 1px, transparent 1px),
-    radial-gradient(circle at 15% 10%, rgba(255, 81, 103, 0.24), transparent 32%),
-    radial-gradient(circle at 85% 0%, rgba(125, 1, 177, 0.28), transparent 30%),
-    var(--surface-lowest);
-  background-size: 72px 72px, 72px 72px, auto, auto, auto;
+  background: var(--surface-lowest);
 }
 
 a {
@@ -55,8 +49,8 @@ textarea {
 }
 
 ::selection {
-  background: var(--primary-hot);
-  color: white;
+  background: var(--primary);
+  color: var(--surface-lowest);
 }
 
 @media (prefers-reduced-motion: reduce) {

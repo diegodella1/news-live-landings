@@ -1,36 +1,41 @@
-# News Landings Stitch Design System
+# Design System: Source-Forward News Landings
 
-## Purpose
+## 1. Visual Theme & Atmosphere
 
-This project generates source-forward news landings from Telegram requests. Every landing should feel like a modern editorial visual brief, not a branded TV page.
+A premium editorial intelligence surface: restrained, asymmetric, and visually rich without looking like broadcast TV. Density is balanced for fast scanning, variance is high enough to avoid generic card grids, and motion is fluid but quiet. The atmosphere should feel like a modern newsroom product desk: composed, evidence-led, and visually decisive.
 
-## Design Principles
+## 2. Color Palette & Roles
 
-- Lead with one strong visual or visualized evidence area.
-- Keep hero copy concise: headline, subheadline, topic, timestamp.
-- Make sources visible and close to the claims they support.
-- Use restrained motion: scroll reveal, subtle parallax, and horizontal story frames only when useful.
-- Avoid neon broadcast styling, brand-specific references, decorative clutter, and unsourced visual claims.
+- **Charcoal Ink** (#18181B) — Primary page background, never pure black.
+- **Deep Zinc** (#27272A) — Elevated panels and visual containers.
+- **Paper White** (#F4F4F5) — Primary text and high-contrast labels.
+- **Muted Zinc** (#A1A1AA) — Metadata, source context, quiet labels.
+- **Whisper Border** (rgba(244,244,245,0.14)) — Structural lines and panel edges.
+- **Signal Lime** (#D6FF5F) — Single accent for live state, links, and active evidence. No secondary neon accents.
 
-## Page Structure
+## 3. Typography Rules
 
-1. Hero: large visual cover with concise text.
-2. Source Rail: visible list of primary outlets.
-3. Story Frames: claim cards with section-level source links.
-4. Data/Context: short sourced facts, no invented quotes.
-5. Update History: material changes with source URLs.
+- **Display:** Space Grotesk — tight, confident, controlled scale. No all-caps shouting for headlines.
+- **Body:** Work Sans — relaxed leading, max 65 characters per line.
+- **Metadata:** Space Grotesk — compact uppercase labels with modest letter spacing.
+- **Banned:** Inter, generic serif fonts, pure black, neon glows, purple/blue gradients, fabricated numbers.
 
-## Visual Language
+## 4. Component Stylings
 
-- Background: deep neutral editorial surface.
-- Text: high-contrast off-white.
-- Accent: clear blue for links and live state.
-- Cards: low-radius, readable, source-first.
-- Typography: Space Grotesk for headlines and labels, Work Sans for body.
+- **Hero:** Asymmetric split. Large image or visualized evidence background. Concise headline and source-aware metadata. No centered generic hero.
+- **Story Frames:** Horizontal evidence cards when multiple sections exist. Each card must include section-level source chips.
+- **Visual Tiles:** Use chart, map, image, or abstract evidence visuals. Never show raw placeholder words as visuals.
+- **Sources:** Source rail is visible and close to content. Links use Signal Lime only on hover/focus.
+- **Cards:** Rounded 28px panels, quiet border, deep shadow. No glassmorphism or outer glow.
 
-## Implementation Notes
+## 5. Layout Principles
 
-- React components must stay modular and typed.
-- Landing JSON carries `designSpec.source = "stitch"` for every new landing.
-- Every factual section must include `sourceUrls`.
-- Quotes must be exact and source-bound; otherwise omit quotes.
+Use CSS Grid-first responsive architecture with max-width 1380px. Collapse to one column below 800px. No horizontal overflow on mobile except intentional clipped story carousel. Avoid equal 3-column card rows. Every element must occupy a clear spatial zone with no overlap.
+
+## 6. Motion & Interaction
+
+Use transform and opacity only. Reveal content with spring-like ease and restrained stagger. Ticker movement is acceptable only for summaries. Active live dot may pulse subtly. No bouncing arrows, no decorative glow loops.
+
+## 7. Anti-Patterns
+
+No emojis. No pure black. No neon or outer glow shadows. No purple/blue gradient aesthetic. No generic landing-page filler. No fake statistics. No unsourced claims. No placeholder names. No broken image links. No text-only visual tiles. No brand-specific Roxom/TV styling.

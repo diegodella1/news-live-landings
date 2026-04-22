@@ -2,7 +2,6 @@
 
 import { motion, useScroll, useTransform } from "framer-motion";
 import type { LandingContent } from "@/lib/types";
-import { NeonBackdrop } from "./NeonBackdrop";
 import styles from "./landing.module.css";
 
 function VisualTile({ type, index }: { type: string; index: number }) {
@@ -50,7 +49,6 @@ export function LandingRenderer({ content }: { content: LandingContent }) {
   return (
     <main className={styles.shell}>
       <motion.div className={styles.parallaxGrid} style={{ y: gridShift }} aria-hidden="true" />
-      <NeonBackdrop />
 
       <section
         className={styles.hero}
