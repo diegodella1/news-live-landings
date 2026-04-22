@@ -16,8 +16,21 @@ type TelegramUpdate = {
   message?: TelegramMessage;
 };
 
-const sendTelegramMessage = async (chatId: string | number, text: string) => {
-  recordTelegramEvent("out", { text }, String(chatId));
+const menuKeyboard = {
+  keyboard: [
+    [{ text: "Discover topic" }, { text: "Latest landings" }],
+    [{ text: "Help" }]
+  ],
+  resize_keyboard: true,
+  is_persistent: true
+};
+
+const sendTelegramMessage = async (
+  chatId: string | number,
+  text: string,
+  options: { menu?: boolean } = {}
+) => {
+  recordTelegramEvent("out", { text, menu: options.menu }, String(chatId));
 
   if (!env.telegramBotToken) {
     console.log(`[telegram:fallback] ${chatId}: ${text}`);
@@ -30,7 +43,8 @@ const sendTelegramMessage = async (chatId: string | number, text: string) => {
     body: JSON.stringify({
       chat_id: chatId,
       text,
-      disable_web_page_preview: false
+      disable_web_page_preview: false,
+      ...(options.menu ? { reply_markup: menuKeyboard } : {})
     })
   });
 };
@@ -47,17 +61,17 @@ const assertAllowedChat = (chatId: string | number) => {
 };
 
 const helpText = () => [
-  "Live news landing commands:",
-  "/discover_live [hint]",
-  "/start_live <topic>",
-  "/status <slug_or_topic>",
-  "/force_update <slug_or_topic>",
-  "/cancel_live <slug_or_topic>",
-  "/pause_live <slug_or_topic>",
-  "/resume_live <slug_or_topic>",
-  "/final_url <slug_or_topic>",
-  "/landings",
-  "/help"
+  "Send me a topic and I will build a sourced live news landing.",
+  "",
+  "Examples:",
+  "bitcoin treasury companies",
+  "jerome powell fed rates",
+  "iran us hormuz",
+  "",
+  "Menu:",
+  "Discover topic - I choose a current topic.",
+  "Latest landings - See published landings.",
+  "Help - Show this guide."
 ].join("\n");
 
 const findSlug = (value: string) => {
@@ -100,67 +114,83 @@ const stageMessage = (topic: string, stage: string, detail?: string) => {
   return `STAGE | topic=${topic} | stage=${stage}${suffix}`;
 };
 
+const listLandingsMessage = () => {
+  const latest = listLandings(10)
+    .filter(landing => landing.status === "live")
+    .map(landing => `- ${landing.slug}: ${landing.finalUrl}`)
+    .join("\n");
+  return [`LANDINGS INDEX: ${env.landingsIndexUrl}`, latest].filter(Boolean).join("\n");
+};
+
+const runDiscoveredLanding = async (chatId: string | number, hint = "") => {
+  const startedAt = new Date().toISOString();
+  await sendTelegramMessage(chatId, `DISCOVERY STARTED${hint ? ` | hint=${hint}` : ""}`, { menu: true });
+  const discovery = await discoverLiveTopic(hint);
+  await sendTelegramMessage(
+    chatId,
+    `TOPIC SELECTED | topic=${discovery.selectedTopic} | reason=${discovery.selectedRationale.slice(0, 700)}`,
+    { menu: true }
+  );
+
+  const existing = getLandingBySlug(slugify(discovery.selectedTopic));
+  const landing =
+    existing && !retryableStatuses.has(existing.status)
+      ? existing
+      : await startLiveLanding(discovery.selectedTopic, (stage, detail) =>
+          sendTelegramMessage(chatId, stageMessage(discovery.selectedTopic, stage, detail), { menu: true })
+        );
+  await sendTelegramMessage(chatId, landingStatusMessage(landing), { menu: true });
+  await sendTelegramMessage(chatId, tokenUsageMessage(startedAt), { menu: true });
+  return { ok: true, slug: landing.slug, topic: discovery.selectedTopic };
+};
+
+const runTopicLanding = async (chatId: string | number, topic: string) => {
+  const startedAt = new Date().toISOString();
+  const existing = getLandingBySlug(slugify(topic));
+  if (existing && !retryableStatuses.has(existing.status)) {
+    await sendTelegramMessage(chatId, landingStatusMessage(existing), { menu: true });
+    await sendTelegramMessage(chatId, tokenUsageMessage(startedAt), { menu: true });
+    return { ok: true, slug: existing.slug, existing: true };
+  }
+
+  await sendTelegramMessage(chatId, `TOPIC RECEIVED | topic=${topic}${existing ? " | mode=retry" : ""}`, { menu: true });
+  const landing = await startLiveLanding(topic, (stage, detail) =>
+    sendTelegramMessage(chatId, stageMessage(topic, stage, detail), { menu: true })
+  );
+  await sendTelegramMessage(chatId, landingStatusMessage(landing), { menu: true });
+  await sendTelegramMessage(chatId, tokenUsageMessage(startedAt), { menu: true });
+  return { ok: true, slug: landing.slug };
+};
+
 export const handleTelegramUpdate = async (update: TelegramUpdate) => {
   const message = update.message;
   if (!message?.text) return { ok: true, ignored: true };
 
   const chatId = message.chat.id;
   assertAllowedChat(chatId);
-  const [command, ...rest] = message.text.trim().split(/\s+/);
+  const text = message.text.trim();
+  const [command, ...rest] = text.split(/\s+/);
   const arg = rest.join(" ").trim();
   recordTelegramEvent("in", update, String(chatId), command);
 
   try {
-    if (command === "/help" || command === "/start") {
-      await sendTelegramMessage(chatId, helpText());
+    if (command === "/help" || command === "/start" || text.toLowerCase() === "help") {
+      await sendTelegramMessage(chatId, helpText(), { menu: true });
       return { ok: true };
     }
 
-    if (command === "/landings") {
-      const latest = listLandings(10)
-        .filter(landing => landing.status === "live")
-        .map(landing => `- ${landing.slug}: ${landing.finalUrl}`)
-        .join("\n");
-      await sendTelegramMessage(chatId, [`LANDINGS INDEX: ${env.landingsIndexUrl}`, latest].filter(Boolean).join("\n"));
+    if (command === "/landings" || text.toLowerCase() === "latest landings") {
+      await sendTelegramMessage(chatId, listLandingsMessage(), { menu: true });
       return { ok: true };
     }
 
-    if (command === "/discover_live") {
-      const startedAt = new Date().toISOString();
-      await sendTelegramMessage(chatId, `DISCOVERY STARTED${arg ? ` | hint=${arg}` : ""}`);
-      const discovery = await discoverLiveTopic(arg);
-      await sendTelegramMessage(
-        chatId,
-        `TOPIC SELECTED | topic=${discovery.selectedTopic} | reason=${discovery.selectedRationale.slice(0, 700)}`
-      );
-
-      const existing = getLandingBySlug(slugify(discovery.selectedTopic));
-      const landing =
-        existing && !retryableStatuses.has(existing.status)
-          ? existing
-          : await startLiveLanding(discovery.selectedTopic, (stage, detail) =>
-              sendTelegramMessage(chatId, stageMessage(discovery.selectedTopic, stage, detail))
-            );
-      await sendTelegramMessage(chatId, landingStatusMessage(landing));
-      await sendTelegramMessage(chatId, tokenUsageMessage(startedAt));
-      return { ok: true, slug: landing.slug, topic: discovery.selectedTopic };
+    if (command === "/discover_live" || text.toLowerCase() === "discover topic") {
+      return runDiscoveredLanding(chatId, arg);
     }
 
     if (command === "/start_live") {
       if (!arg) throw new Error("Usage: /start_live <topic>");
-      const startedAt = new Date().toISOString();
-      const existing = getLandingBySlug(slugify(arg));
-      if (existing && !retryableStatuses.has(existing.status)) {
-        await sendTelegramMessage(chatId, landingStatusMessage(existing));
-        await sendTelegramMessage(chatId, tokenUsageMessage(startedAt));
-        return { ok: true, slug: existing.slug, existing: true };
-      }
-
-      await sendTelegramMessage(chatId, `PROJECT STARTED | topic=${arg}${existing ? " | mode=retry" : ""}`);
-      const landing = await startLiveLanding(arg, (stage, detail) => sendTelegramMessage(chatId, stageMessage(arg, stage, detail)));
-      await sendTelegramMessage(chatId, landingStatusMessage(landing));
-      await sendTelegramMessage(chatId, tokenUsageMessage(startedAt));
-      return { ok: true, slug: landing.slug };
+      return runTopicLanding(chatId, arg);
     }
 
     if (command === "/status") {
@@ -169,7 +199,8 @@ export const handleTelegramUpdate = async (update: TelegramUpdate) => {
       if (!landing) throw new Error(`No landing found for ${arg}`);
       await sendTelegramMessage(
         chatId,
-        `STATUS | topic=${landing.topic} | slug=${landing.slug} | status=${landing.status} | final_url=${landing.finalUrl} | last_updated=${landing.updatedAt}`
+        `STATUS | topic=${landing.topic} | slug=${landing.slug} | status=${landing.status} | final_url=${landing.finalUrl} | last_updated=${landing.updatedAt}`,
+        { menu: true }
       );
       return { ok: true };
     }
@@ -177,7 +208,7 @@ export const handleTelegramUpdate = async (update: TelegramUpdate) => {
     if (command === "/final_url") {
       if (!arg) throw new Error("Usage: /final_url <slug_or_topic>");
       const slug = findSlug(arg);
-      await sendTelegramMessage(chatId, `FINAL URL | final_url=${publicFinalUrl(slug)} | index_url=${env.landingsIndexUrl}`);
+      await sendTelegramMessage(chatId, `FINAL URL | final_url=${publicFinalUrl(slug)} | index_url=${env.landingsIndexUrl}`, { menu: true });
       return { ok: true };
     }
 
@@ -187,9 +218,10 @@ export const handleTelegramUpdate = async (update: TelegramUpdate) => {
       const result = await runLiveCycleForLanding(findSlug(arg));
       await sendTelegramMessage(
         chatId,
-        `FORCE UPDATE | slug=${result.landing.slug} | materiality=${result.monitor?.materiality ?? "SKIPPED"} | updated=${result.updated}`
+        `FORCE UPDATE | slug=${result.landing.slug} | materiality=${result.monitor?.materiality ?? "SKIPPED"} | updated=${result.updated}`,
+        { menu: true }
       );
-      await sendTelegramMessage(chatId, tokenUsageMessage(startedAt));
+      await sendTelegramMessage(chatId, tokenUsageMessage(startedAt), { menu: true });
       return { ok: true };
     }
 
@@ -199,7 +231,7 @@ export const handleTelegramUpdate = async (update: TelegramUpdate) => {
       const landing = getLandingBySlug(slug);
       if (!landing) throw new Error(`No landing found for ${arg}`);
       updateLandingStatus(landing.id, command === "/pause_live" ? "paused" : "live");
-      await sendTelegramMessage(chatId, `${command === "/pause_live" ? "PAUSED" : "RESUMED"} | slug=${slug}`);
+      await sendTelegramMessage(chatId, `${command === "/pause_live" ? "PAUSED" : "RESUMED"} | slug=${slug}`, { menu: true });
       return { ok: true };
     }
 
@@ -209,15 +241,19 @@ export const handleTelegramUpdate = async (update: TelegramUpdate) => {
       const landing = getLandingBySlug(slug);
       if (!landing) throw new Error(`No landing found for ${arg}`);
       updateLandingStatus(landing.id, "cancelled");
-      await sendTelegramMessage(chatId, `CANCELLED | slug=${slug}`);
+      await sendTelegramMessage(chatId, `CANCELLED | slug=${slug}`, { menu: true });
       return { ok: true };
     }
 
-    await sendTelegramMessage(chatId, `Unknown command: ${command}\n\n${helpText()}`);
-    return { ok: true };
+    if (text.startsWith("/")) {
+      await sendTelegramMessage(chatId, `I did not recognize that menu action.\n\n${helpText()}`, { menu: true });
+      return { ok: true };
+    }
+
+    return runTopicLanding(chatId, text);
   } catch (error) {
     const messageText = error instanceof Error ? error.message : String(error);
-    await sendTelegramMessage(chatId, `BLOCKER | stage=telegram | action_required=${messageText}`);
+    await sendTelegramMessage(chatId, `BLOCKER | stage=telegram | action_required=${messageText}`, { menu: true });
     return { ok: false, error: messageText };
   }
 };

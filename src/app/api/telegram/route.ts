@@ -11,7 +11,12 @@ const isLongRunningCommand = (update: unknown) => {
       : undefined;
 
   if (typeof text !== "string") return false;
-  const command = text.trim().split(/\s+/)[0];
+  const trimmed = text.trim();
+  const normalized = trimmed.toLowerCase();
+  if (normalized === "discover topic") return true;
+  if (!trimmed.startsWith("/") && normalized !== "help" && normalized !== "latest landings") return true;
+
+  const command = trimmed.split(/\s+/)[0];
   return command === "/start_live" || command === "/force_update" || command === "/discover_live";
 };
 
