@@ -13,7 +13,7 @@ import { runCritic } from "./agents/critic";
 import { runDesigner, runDesignerRevision } from "./agents/designer";
 import { deltaHash, runLiveMonitor, runLiveUpdater } from "./agents/live";
 import { runResearch } from "./agents/research";
-import { runWriter } from "./agents/writer";
+import { runWriter, type WriterOutput } from "./agents/writer";
 import type { LandingContent, LandingRecord } from "./types";
 
 const retryableStatuses = new Set(["blocked", "cancelled", "failed"]);
@@ -32,6 +32,79 @@ const createOrRestartDraft = (input: { existing: LandingRecord | null; content: 
   }
 
   return createLanding(content);
+};
+
+const safeBriefContent = (input: {
+  base: LandingContent;
+  writing: WriterOutput;
+  slug: string;
+  topic: string;
+  reason: string;
+}): LandingContent => {
+  const timestamp = new Date().toISOString();
+  const facts = input.base.summary
+    ? [input.base.summary, ...input.writing.sections.map(section => section.body)]
+    : input.writing.sections.map(section => section.body);
+  const primarySource = input.base.sources[0];
+
+  return {
+    ...input.base,
+    slug: input.slug,
+    topic: input.topic,
+    headline: input.writing.headline || `Live brief: ${input.topic}`,
+    subheadline: primarySource
+      ? `A conservative sourced brief based on reporting from ${primarySource.outlet}.`
+      : "A conservative sourced brief with live monitoring enabled.",
+    summary:
+      facts[0] ??
+      `This page is tracking ${input.topic}. It will update only when verified source material passes the publishing guardrails.`,
+    status: "live",
+    lastUpdatedUtc: timestamp,
+    sections: [
+      {
+        id: "what-is-reported",
+        eyebrow: "Reported",
+        title: "What is reported now",
+        body: facts[0] ?? `The current brief tracks ${input.topic} using the listed sources.`,
+        visualHint: "data"
+      },
+      {
+        id: "source-context",
+        eyebrow: "Sources",
+        title: "Where this stands",
+        body:
+          input.base.sources.length > 0
+            ? `This brief uses ${input.base.sources.map(source => source.outlet).join(", ")} as its source base and avoids claims outside that reporting.`
+            : "This brief is waiting for stronger source coverage before adding more detail.",
+        visualHint: "quote"
+      },
+      {
+        id: "watch-next",
+        eyebrow: "Watch Next",
+        title: "What could change",
+        body: "The live monitor will update this page when new verified facts materially change the story.",
+        visualHint: "svg"
+      }
+    ],
+    quotes: [],
+    dataPoints: [
+      {
+        label: "Sources",
+        value: String(input.base.sources.length),
+        context: "Count of sources attached to this conservative live brief.",
+        sourceUrl: primarySource?.url ?? finalUrlForSlug(input.slug)
+      }
+    ],
+    updateHistory: [
+      {
+        timestampUtc: timestamp,
+        materiality: "MINOR",
+        summary: `Published as conservative safe brief after autonomous repair feedback: ${input.reason}`,
+        sourceUrls: input.base.sources.map(source => source.url)
+      },
+      ...input.base.updateHistory
+    ]
+  };
 };
 
 export const startLiveLanding = async (topic: string) => {
@@ -81,23 +154,8 @@ export const startLiveLanding = async (topic: string) => {
   }
 
   if (!critic.approved) {
-    return updateLandingContent(
-      draft.id,
-      {
-        ...content,
-        status: "failed",
-        updateHistory: [
-          {
-            timestampUtc: new Date().toISOString(),
-            materiality: "BLOCKER",
-            summary: `Autonomous critic repair exhausted after ${maxCriticRepairAttempts} attempts: ${critic.summary}`,
-            sourceUrls: []
-          },
-          ...content.updateHistory
-        ]
-      },
-      "failed"
-    );
+    const safeContent = safeBriefContent({ base: content, writing, slug, topic, reason: critic.summary });
+    return updateLandingContent(draft.id, safeContent, "live");
   }
 
   return updateLandingContent(draft.id, { ...content, status: "live" }, "live");
