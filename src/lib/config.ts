@@ -4,6 +4,10 @@ export const env = {
   openaiApiKey: process.env.OPENAI_API_KEY ?? "",
   telegramBotToken: process.env.TELEGRAM_BOT_TOKEN ?? "",
   telegramChatId: process.env.TELEGRAM_CHAT_ID ?? "",
+  telegramAllowedChatIds: (process.env.TELEGRAM_CHAT_IDS ?? process.env.TELEGRAM_CHAT_ID ?? "")
+    .split(",")
+    .map(value => value.trim())
+    .filter(Boolean),
   telegramWebhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET ?? "",
   finalUrlBase: process.env.FINAL_URL_BASE ?? "https://diegodella.ar/landings",
   landingsIndexUrl: process.env.LANDINGS_INDEX_URL ?? "https://diegodella.ar/landings",

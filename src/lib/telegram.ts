@@ -33,12 +33,12 @@ const sendTelegramMessage = async (chatId: string | number, text: string) => {
 };
 
 export const notifyTelegram = async (text: string) => {
-  if (!env.telegramChatId) return;
-  await sendTelegramMessage(env.telegramChatId, text);
+  const recipients = env.telegramAllowedChatIds.length > 0 ? env.telegramAllowedChatIds : env.telegramChatId ? [env.telegramChatId] : [];
+  await Promise.all(recipients.map(chatId => sendTelegramMessage(chatId, text)));
 };
 
 const assertAllowedChat = (chatId: string | number) => {
-  if (env.telegramChatId && String(chatId) !== String(env.telegramChatId)) {
+  if (env.telegramAllowedChatIds.length > 0 && !env.telegramAllowedChatIds.includes(String(chatId))) {
     throw new Error("Unauthorized Telegram chat.");
   }
 };

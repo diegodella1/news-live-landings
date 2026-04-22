@@ -12,7 +12,8 @@ export async function GET() {
     configured: {
       openai: Boolean(env.openaiApiKey),
       telegramBot: Boolean(env.telegramBotToken),
-      telegramChat: Boolean(env.telegramChatId),
+      telegramChat: env.telegramAllowedChatIds.length > 0,
+      telegramChatCount: env.telegramAllowedChatIds.length,
       telegramWebhookSecret: Boolean(env.telegramWebhookSecret),
       internalCronSecret: Boolean(env.internalCronSecret)
     },
