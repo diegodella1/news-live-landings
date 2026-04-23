@@ -1,4 +1,4 @@
-import { findLandingBySourceUrl, getLandingBySlug, listLandings, summarizeTokenUsageSince, updateLandingStatus } from "./db";
+import { findLandingBySourceUrl, findLandingByTopic, getLandingBySlug, listLandings, summarizeTokenUsageSince, updateLandingStatus } from "./db";
 import { discoverLiveTopic } from "./agents/discover";
 import { env } from "./config";
 import { publicFinalUrl, runLiveCycleForLanding, startLiveLanding } from "./pipeline";
@@ -113,6 +113,12 @@ const stageMessage = (topic: string, stage: string, detail?: string) => {
   return `STAGE | topic=${topic} | stage=${stage}${suffix}`;
 };
 
+const duplicateTopicMessage = (input: { topic: string; matchedTopic: string; slug: string; finalUrl: string; score: number }) =>
+  [
+    `TOPIC ALREADY COVERED | topic=${input.topic} | matched_topic=${input.matchedTopic} | slug=${input.slug} | final_url=${input.finalUrl} | score=${input.score.toFixed(2)}`,
+    `To refresh this landing now: force update ${input.slug}`
+  ].join("\n");
+
 const listLandingsMessage = () => {
   const latest = listLandings(10)
     .filter(landing => landing.status === "live")
@@ -130,7 +136,24 @@ const runDiscoveredLanding = async (sendMessage: ChatSendMessage, hint = "") => 
     { menu: true }
   );
 
-  const existing = getLandingBySlug(slugify(discovery.selectedTopic));
+  const exact = getLandingBySlug(slugify(discovery.selectedTopic));
+  const topicMatch = findLandingByTopic(discovery.selectedTopic, {
+    statuses: ["live", "paused", "critic_review", "drafting"],
+    minimumScore: 0.8
+  });
+  const existing = exact ?? topicMatch?.landing ?? null;
+  if (existing && !retryableStatuses.has(existing.status)) {
+    await sendMessage(
+      duplicateTopicMessage({
+        topic: discovery.selectedTopic,
+        matchedTopic: existing.topic,
+        slug: existing.slug,
+        finalUrl: existing.finalUrl,
+        score: topicMatch?.score ?? 1
+      }),
+      { menu: true }
+    );
+  }
   const landing =
     existing && !retryableStatuses.has(existing.status)
       ? existing
@@ -144,8 +167,23 @@ const runDiscoveredLanding = async (sendMessage: ChatSendMessage, hint = "") => 
 
 const runTopicLanding = async (sendMessage: ChatSendMessage, topic: string) => {
   const startedAt = new Date().toISOString();
-  const existing = getLandingBySlug(slugify(topic));
+  const exact = getLandingBySlug(slugify(topic));
+  const topicMatch = findLandingByTopic(topic, {
+    statuses: ["live", "paused", "critic_review", "drafting"],
+    minimumScore: 0.8
+  });
+  const existing = exact ?? topicMatch?.landing ?? null;
   if (existing && !retryableStatuses.has(existing.status)) {
+    await sendMessage(
+      duplicateTopicMessage({
+        topic,
+        matchedTopic: existing.topic,
+        slug: existing.slug,
+        finalUrl: existing.finalUrl,
+        score: topicMatch?.score ?? 1
+      }),
+      { menu: true }
+    );
     await sendMessage(landingStatusMessage(existing), { menu: true });
     await sendMessage(tokenUsageMessage(startedAt), { menu: true });
     return { ok: true, slug: existing.slug, existing: true };

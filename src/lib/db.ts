@@ -18,6 +18,12 @@ export type TokenUsageSummary = {
   totalTokens: number;
 };
 
+export type LandingTopicMatch = {
+  landing: LandingRecord;
+  score: number;
+  matchType: "exact" | "similar";
+};
+
 let database: DatabaseSync | null = null;
 
 const dbPath = () => {
@@ -119,6 +125,43 @@ export const getDb = (): DatabaseSync => {
 
 const now = () => new Date().toISOString();
 
+const topicStopWords = new Set([
+  "the", "a", "an", "and", "or", "to", "for", "of", "in", "on", "at", "by",
+  "with", "from", "vs", "v", "is", "are", "was", "were", "as", "about", "after",
+  "before", "this", "that", "these", "those", "latest", "live", "news", "update"
+]);
+
+const normalizeTopicText = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, " ")
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const topicTokens = (value: string) =>
+  normalizeTopicText(value)
+    .split(" ")
+    .map(token => token.trim())
+    .filter(token => token.length >= 3 && !topicStopWords.has(token));
+
+const topicSimilarityScore = (left: string, right: string) => {
+  const leftTokens = topicTokens(left);
+  const rightTokens = topicTokens(right);
+  if (leftTokens.length === 0 || rightTokens.length === 0) return 0;
+  const leftSet = new Set(leftTokens);
+  const rightSet = new Set(rightTokens);
+  let overlap = 0;
+  for (const token of leftSet) {
+    if (rightSet.has(token)) overlap += 1;
+  }
+  if (overlap === 0) return 0;
+  const union = new Set([...leftSet, ...rightSet]).size;
+  const jaccard = overlap / union;
+  const coverage = overlap / Math.min(leftSet.size, rightSet.size);
+  return Math.max(jaccard, coverage * 0.92);
+};
+
 const ensureColumn = (table: string, column: string, definition: string) => {
   const db = getDb();
   const columns = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
@@ -189,6 +232,42 @@ export const listLandings = (limit = 50) =>
     .prepare("SELECT * FROM landings ORDER BY updated_at DESC LIMIT ?")
     .all(limit)
     .map(rowToLanding);
+
+export const findLandingByTopic = (
+  topic: string,
+  options?: {
+    statuses?: LandingStatus[];
+    limit?: number;
+    minimumScore?: number;
+  }
+): LandingTopicMatch | null => {
+  const normalizedTopic = normalizeTopicText(topic);
+  if (!normalizedTopic) return null;
+
+  const statuses = options?.statuses;
+  const candidates = listLandings(options?.limit ?? 200)
+    .filter(landing => !statuses || statuses.includes(landing.status));
+
+  const exact = candidates.find(landing => normalizeTopicText(landing.topic) === normalizedTopic);
+  if (exact) return { landing: exact, score: 1, matchType: "exact" };
+
+  let best: LandingTopicMatch | null = null;
+  for (const landing of candidates) {
+    const score = topicSimilarityScore(topic, landing.topic);
+    if (!best || score > best.score) {
+      best = {
+        landing,
+        score,
+        matchType: "similar"
+      };
+    }
+  }
+
+  if (!best) return null;
+  const threshold = options?.minimumScore ?? 0.74;
+  if (best.score < threshold) return null;
+  return best;
+};
 
 export const listActiveLandings = () =>
   getDb()

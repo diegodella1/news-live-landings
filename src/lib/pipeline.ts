@@ -1,5 +1,6 @@
 import {
   createLanding,
+  findLandingByTopic,
   getLandingBySlug,
   listActiveLandings,
   markLandingCycle,
@@ -132,7 +133,12 @@ const safeBriefContent = (input: {
 
 export const startLiveLanding = async (topic: string, onStage?: PipelineStageReporter) => {
   const slug = slugify(topic);
-  const existing = getLandingBySlug(slug);
+  const exactExisting = getLandingBySlug(slug);
+  const topicMatch = findLandingByTopic(topic, {
+    statuses: ["live", "paused", "critic_review", "drafting"],
+    minimumScore: 0.8
+  });
+  const existing = exactExisting ?? topicMatch?.landing ?? null;
   if (existing && !retryableStatuses.has(existing.status)) return existing;
   const createFlow = new Set(getCreateFlowStages());
 
