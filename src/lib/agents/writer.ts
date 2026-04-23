@@ -2,6 +2,7 @@ import { runJsonAgent } from "../openai";
 import type { StorySection } from "../types";
 import { editorialSystem } from "./prompts";
 import type { ResearchOutput } from "./research";
+import { getAgentOverride } from "../admin-agents";
 
 export type WriterOutput = {
   headline: string;
@@ -12,8 +13,9 @@ export type WriterOutput = {
   dataPoints: Array<{ label: string; value: string; context: string; sourceUrl: string }>;
 };
 
-export const runWriter = (research: ResearchOutput) =>
-  runJsonAgent<WriterOutput>({
+export const runWriter = async (research: ResearchOutput) => {
+  const adminOverride = await getAgentOverride("writer");
+  return runJsonAgent<WriterOutput>({
     agent: "writer",
     system: editorialSystem,
     prompt: `
@@ -46,6 +48,7 @@ Before returning JSON, run this private preflight and fix failures yourself:
 - No generic section titles remain unless the topic truly demands them.
 - Summary and subheadline are specific enough that a reader can understand the story without scrolling.
 - Data points are concrete, source-linked, and useful as top-line cards.
+${adminOverride}
 Return JSON:
 {
   "headline": string,
@@ -127,3 +130,4 @@ ${JSON.stringify(research)}
       ]
     })
   });
+};

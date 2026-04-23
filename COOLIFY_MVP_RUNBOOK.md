@@ -36,6 +36,7 @@ DATABASE_URL=file:/data/news-live.db
 LIVE_CYCLE_MINUTES=30
 PIPELINE_ENV=prod
 INTERNAL_CRON_SECRET=
+ADMIN_TOKEN=
 CRITIC_REPAIR_ATTEMPTS=8
 DEFAULT_MODEL=gpt-5.4-mini
 RESEARCH_MODEL=gpt-5.4
@@ -83,6 +84,16 @@ Use `/landings/api/internal/live-cycle` if the app is path-mounted under `/landi
 /landings
 /help
 ```
+
+## Admin Agent Editor
+
+Set `ADMIN_TOKEN` in production, then open:
+
+```text
+https://diegodella.ar/admin?token=YOUR_ADMIN_TOKEN
+```
+
+The editor saves runtime overrides for Research, Writer, Designer, and Critic in `/data/admin-agent-overrides.json` by default. Set `AGENT_OVERRIDES_DIR` to use a different persistent directory. Overrides apply to new agent runs without a rebuild. They do not rewrite the source files in Git.
 
 ## Acceptance Smoke Test
 

@@ -3,6 +3,7 @@ import type { ImageCandidate, Source, SourceBoundFact } from "../types";
 import { discoverSourceImages, discoverWikimediaImages } from "../source-images";
 import { editorialSystem } from "./prompts";
 import { fallbackSources } from "./fallbacks";
+import { getAgentOverride } from "../admin-agents";
 
 export type ResearchOutput = {
   topic: string;
@@ -40,8 +41,9 @@ const normalizeResearch = async (output: ResearchOutput): Promise<ResearchOutput
   };
 };
 
-export const runResearch = async (topic: string) =>
-  normalizeResearch(await runJsonAgent<ResearchOutput>({
+export const runResearch = async (topic: string) => {
+  const adminOverride = await getAgentOverride("research");
+  return normalizeResearch(await runJsonAgent<ResearchOutput>({
     agent: "research",
     system: editorialSystem,
     useWebSearch: true,
@@ -70,6 +72,7 @@ Return JSON:
   "visualDirections": string[]
 }
 Minimum eight credible sources when available. Minimum twenty source-bound facts when available. No unsupported claims.
+${adminOverride}
 `,
     fallback: () => {
       const sources = fallbackSources(topic);
@@ -91,3 +94,4 @@ Minimum eight credible sources when available. Minimum twenty source-bound facts
       };
     }
   }));
+};

@@ -2,10 +2,12 @@ import { runJsonAgent } from "../openai";
 import type { CriticResult, LandingContent } from "../types";
 import { validateLandingContent } from "../validation";
 import { editorialSystem } from "./prompts";
+import { getAgentOverride } from "../admin-agents";
 
 export const runCritic = async (content: LandingContent, landingId?: number) => {
   const local = validateLandingContent(content);
   if (!local.approved) return local;
+  const adminOverride = await getAgentOverride("critic");
 
   return runJsonAgent<CriticResult>({
     agent: "critic",
@@ -23,6 +25,7 @@ Good examples:
 - "visuals: Hero image relevance is unclear. Fix: rewrite relevanceReason to name the person/place/source overlap, or remove the image."
 - "top-line: Summary is too generic. Fix: name the current event, the affected actors, and why this changed today."
 Do not return vague issues like "improve quality", "needs work", or "make it better".
+${adminOverride}
 Return JSON:
 {
   "approved": boolean,

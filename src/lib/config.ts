@@ -14,6 +14,7 @@ export const env = {
   databaseUrl: process.env.DATABASE_URL ?? "file:/tmp/news-live-dev.db",
   liveCycleMinutes: Number(process.env.LIVE_CYCLE_MINUTES ?? "30"),
   internalCronSecret: process.env.INTERNAL_CRON_SECRET ?? "",
+  adminToken: process.env.ADMIN_TOKEN ?? "",
   pipelineEnv: process.env.PIPELINE_ENV ?? "dev"
 };
 

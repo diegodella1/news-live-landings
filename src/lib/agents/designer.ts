@@ -5,6 +5,7 @@ import type { CriticResult, ImageCandidate, LandingContent, LandingDesignSpec, V
 import { stitchDesignSystem } from "./prompts";
 import type { ResearchOutput } from "./research";
 import type { WriterOutput } from "./writer";
+import { getAgentOverride } from "../admin-agents";
 
 const normalizeLandingDesign = (content: LandingContent, fallback: LandingDesignSpec): LandingContent => {
   const sourceUrls = content.sources.map(source => source.url);
@@ -50,6 +51,7 @@ export const runDesigner = async (topic: string, research: ResearchOutput, writi
   const slug = slugify(topic);
   const fallbackDesign = defaultStitchDesignSpec();
   const primaryImage = research.imageCandidates[0];
+  const adminOverride = await getAgentOverride("designer");
   const content = await runJsonAgent<LandingContent>({
     agent: "designer",
     system: stitchDesignSystem,
@@ -114,6 +116,7 @@ First-pass quality gate before returning:
 - Visuals must be story-relevant. If no real image is available, include a deliberate SVG/chart/map fallback visual direction instead of pretending a decorative image exists.
 - DesignSpec must match the retro-futurist broadcast system: hot pink, neon purple, bright cyan, glass restraint, strong source clarity.
 - Data points must be useful as top-line cards and must cite attached sources.
+${adminOverride}
 Images: ${JSON.stringify(research.imageCandidates)}
 Topic: ${topic}
 Research: ${JSON.stringify(research)}
@@ -156,8 +159,9 @@ Writing: ${JSON.stringify(writing)}
   return ensurePrimaryImage(normalizeLandingDesign(content, fallbackDesign), primaryImage);
 };
 
-export const runDesignerRevision = async (content: LandingContent, critic: CriticResult, research: ResearchOutput) =>
-  normalizeLandingDesign(await runJsonAgent<LandingContent>({
+export const runDesignerRevision = async (content: LandingContent, critic: CriticResult, research: ResearchOutput) => {
+  const adminOverride = await getAgentOverride("designer");
+  return normalizeLandingDesign(await runJsonAgent<LandingContent>({
     agent: "designer",
     system: stitchDesignSystem,
     prompt: `
@@ -179,6 +183,7 @@ Rules:
 - Preserve or improve designSpec using the Stitch design system.
 - Every Critic issue must be addressed directly. If a section id is named in feedback, fix that exact section. If a count is named, meet or exceed the count.
 - Set "status" to "critic_review".
+${adminOverride}
 
 Critic feedback:
 ${JSON.stringify(critic)}
@@ -198,6 +203,7 @@ ${JSON.stringify(content)}
       dataPoints: content.dataPoints.filter(point => content.sources.some(source => source.url === point.sourceUrl))
     })
   }), content.designSpec ?? defaultStitchDesignSpec());
+};
 
 export const defaultStitchDesignSpec = (): LandingDesignSpec => ({
   source: "stitch",
