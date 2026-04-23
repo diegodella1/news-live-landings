@@ -61,7 +61,7 @@ const agentDefinitions: AgentDefinition[] = [
     filePath: "src/lib/agents/designer.ts",
     status: "active",
     currentDescription:
-      "Converts the written brief and research package into final LandingContent. It owns layout choice, first-viewport clarity, visual hierarchy, hero treatment, visual relevance, section composition, source footer structure, and design spec. It also performs critic-requested repair revisions and should produce near-publishable output before Critic sees it."
+      "Converts the written brief and research package into final LandingContent. It owns layout choice, first-viewport clarity, visual hierarchy, hero treatment, visual relevance, section composition, source footer structure, and a complete Stitch designSpec. It also performs critic-requested repair revisions and must replace malformed designSpec output instead of preserving partial fields."
   },
   {
     id: "critic",
@@ -70,7 +70,7 @@ const agentDefinitions: AgentDefinition[] = [
     filePath: "src/lib/agents/critic.ts",
     status: "active",
     currentDescription:
-      "Reviews the generated landing before publication as a red team. It checks source support, factual caution, unsafe claims, freshness, first-viewport clarity, section quality, visual relevance, and publication readiness. Its issues must be understandable and directly repairable; repeated identical feedback stops repair early instead of spending all attempts."
+      "Reviews the generated landing before publication as a red team. It checks source support, factual caution, unsafe claims, freshness, first-viewport clarity, section quality, visual relevance, publication readiness, and designSpec completeness. Its issues must be understandable and directly repairable; design/layout issues should stay in changes_requested rather than blocked, and repeated identical feedback stops repair early instead of spending all attempts."
   },
   {
     id: "publisher",

@@ -7,6 +7,32 @@ import type { ResearchOutput } from "./research";
 import type { WriterOutput } from "./writer";
 import { getAgentOverride } from "../admin-agents";
 
+const sanitizeDesignSpec = (
+  designSpec: LandingContent["designSpec"] | undefined,
+  fallback: LandingDesignSpec
+): LandingDesignSpec => {
+  const palette = designSpec?.palette ?? fallback.palette;
+  const notes = Array.isArray(designSpec?.notes)
+    ? designSpec.notes.map(note => note.trim()).filter(Boolean)
+    : fallback.notes;
+
+  return {
+    source: "stitch",
+    styleName: designSpec?.styleName?.trim() || fallback.styleName,
+    layout: designSpec?.layout ?? fallback.layout,
+    mood: designSpec?.mood?.trim() || fallback.mood,
+    palette: {
+      background: palette.background?.trim() || fallback.palette.background,
+      text: palette.text?.trim() || fallback.palette.text,
+      accent: palette.accent?.trim() || fallback.palette.accent,
+      muted: palette.muted?.trim() || fallback.palette.muted
+    },
+    heroTreatment: designSpec?.heroTreatment?.trim() || fallback.heroTreatment,
+    motion: designSpec?.motion?.trim() || fallback.motion,
+    notes: notes.length > 0 ? notes : fallback.notes
+  };
+};
+
 const normalizeLandingDesign = (content: LandingContent, fallback: LandingDesignSpec): LandingContent => {
   const sourceUrls = content.sources.map(source => source.url);
   const fallbackSourceUrl = sourceUrls[0] ?? "https://diegodella.ar/landings";
@@ -24,7 +50,7 @@ const normalizeLandingDesign = (content: LandingContent, fallback: LandingDesign
       ...point,
       sourceUrl: sourceUrls.includes(point.sourceUrl) ? point.sourceUrl : fallbackSourceUrl
     })),
-    designSpec: content.designSpec ?? fallback
+    designSpec: sanitizeDesignSpec(content.designSpec, fallback)
   });
 };
 
@@ -75,6 +101,16 @@ Use this exact JSON shape:
   "updateHistory": []
 }
 Stitch design requirements:
+- The designSpec object is mandatory and must be complete. Do not omit fields or return a partial object.
+- Return designSpec exactly with:
+  - source: "stitch"
+  - styleName: short descriptive string
+  - layout: one of "visual-cover" | "person-profile" | "event-brief" | "timeline" | "data-dashboard" | "market-brief" | "competition-brief" | "election-brief"
+  - mood: short descriptive string
+  - palette: object with background, text, accent, muted
+  - heroTreatment: string
+  - motion: string
+  - notes: string[] with at least 2 concrete implementation notes
 - Preserve the story's freshest angle in the first viewport. The hero, summary, and first article section must make the current development understandable without scrolling.
 - Layout must follow the dark magazine/news reference system: full-bleed image hero, long article body, inline imagery, timeline when useful, pull quotes, data/stat section when useful, reactions/source cards, gallery, and footer sources.
 - Do not produce a card-grid landing or compact dossier. The main experience is a readable long-form article with strong narrative pacing and inline visuals.
@@ -184,6 +220,8 @@ Rules:
 - Keep or add topic-specific reporting depth: competitors/status/results for competitions, results/outcomes for elections, quotes from relevant parties when exact source text exists, and full source bibliography at the end.
 - Use safe, neutral wording. Do not overstate legal claims as fact.
 - Preserve or improve designSpec using the Stitch design system.
+- If Critic mentions designSpec, replace the entire designSpec object with a complete valid Stitch spec instead of tweaking one field.
+- The revised designSpec must include source, styleName, layout, mood, palette.background, palette.text, palette.accent, palette.muted, heroTreatment, motion, and notes.
 - Every Critic issue must be addressed directly. If a section id is named in feedback, fix that exact section. If a count is named, meet or exceed the count.
 - Set "status" to "critic_review".
 - After fixing the named issues, run one final full-page pass for top-line clarity, section completeness, source support, visual relevance, and first-viewport quality so a second repair loop is unlikely.

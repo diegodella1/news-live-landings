@@ -75,8 +75,30 @@ export const validateLandingContent = (content: LandingContent): CriticResult =>
     }
   }
 
-  if (content.designSpec?.source !== "stitch") {
-    issues.push("designSpec: Add a Stitch design specification with layout, palette, hero treatment, motion, and notes.");
+  if (!content.designSpec) {
+    issues.push("designSpec: Add a complete Stitch design specification with source, layout, palette, hero treatment, motion, and notes.");
+  } else {
+    if (content.designSpec.source !== "stitch") {
+      issues.push("designSpec: Set source to \"stitch\" and return the full Stitch design specification again.");
+    }
+    if (!content.designSpec.layout) {
+      issues.push("designSpec: Add layout using a valid Stitch landing mode such as visual-cover, event-brief, market-brief, or election-brief.");
+    }
+    if (!content.designSpec.heroTreatment?.trim()) {
+      issues.push("designSpec: Add heroTreatment describing the first-viewport visual and headline treatment.");
+    }
+    if (!content.designSpec.motion?.trim()) {
+      issues.push("designSpec: Add motion guidance, even if it is a restrained/no-auto-scroll rule.");
+    }
+    if (!content.designSpec.palette?.background?.trim()
+      || !content.designSpec.palette?.text?.trim()
+      || !content.designSpec.palette?.accent?.trim()
+      || !content.designSpec.palette?.muted?.trim()) {
+      issues.push("designSpec: Add a complete palette with background, text, accent, and muted color values.");
+    }
+    if (!Array.isArray(content.designSpec.notes) || content.designSpec.notes.length === 0) {
+      issues.push("designSpec: Add notes with concrete implementation guidance for layout, hierarchy, or source presentation.");
+    }
   }
 
   const approved = issues.length === 0;
