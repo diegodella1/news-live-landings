@@ -19,6 +19,8 @@ import { runResearch } from "./agents/research";
 import { runWriter, type WriterOutput } from "./agents/writer";
 import type { LandingContent, LandingRecord } from "./types";
 import { enforceTopLineLanding } from "./landing-quality";
+import { fallbackLanding } from "./agents/fallbacks";
+import { evaluateResearchTopicSupport } from "./topic-support";
 
 const retryableStatuses = new Set(["drafting", "critic_review", "blocked", "cancelled", "failed"]);
 const defaultCriticRepairAttempts = 3;
@@ -50,6 +52,66 @@ const issueOverlapRatio = (previous: Set<string>, next: Set<string>) => {
     if (previous.has(issue)) overlap += 1;
   }
   return overlap / Math.max(previous.size, next.size);
+};
+
+const blockedUnsupportedTopicLanding = (input: {
+  topic: string;
+  slug: string;
+  reason: string;
+  sources: LandingContent["sources"];
+}): LandingContent => {
+  const fallback = fallbackLanding(input.topic, input.slug);
+  const timestamp = new Date().toISOString();
+  const sources = input.sources.length > 0 ? input.sources : fallback.sources;
+  const primarySourceUrl = sources[0]?.url ?? finalUrlForSlug(input.slug);
+
+  return enforceTopLineLanding({
+    ...fallback,
+    slug: input.slug,
+    topic: input.topic,
+    status: "blocked",
+    lastUpdatedUtc: timestamp,
+    headline: `Blocked: ${input.topic} is not directly verified yet`,
+    subheadline: "This topic was not published because the research package did not verify the exact event with a direct source.",
+    summary: input.reason,
+    sources,
+    sections: [
+      {
+        id: "verification",
+        eyebrow: "Verification",
+        title: "Why publication stopped",
+        body: input.reason,
+        visualHint: "data",
+        sourceUrls: [primarySourceUrl]
+      },
+      {
+        id: "required-proof",
+        eyebrow: "Missing Proof",
+        title: "What source evidence is still required",
+        body: "Direct event pages are required for matchup topics: fixture listing, live match page, match report, box score, or official competition reporting that mentions both sides together. Generic team pages are not enough.",
+        visualHint: "svg",
+        sourceUrls: [primarySourceUrl]
+      },
+      {
+        id: "next-step",
+        eyebrow: "Next Step",
+        title: "What would unblock publication",
+        body: "The pipeline can publish once research returns at least one direct source for the exact event and enough source-bound facts to support the result, status, and stakes without guessing.",
+        visualHint: "quote",
+        sourceUrls: [primarySourceUrl]
+      }
+    ],
+    dataPoints: [],
+    quotes: [],
+    updateHistory: [
+      {
+        timestampUtc: timestamp,
+        materiality: "BLOCKER",
+        summary: input.reason,
+        sourceUrls: sources.map(source => source.url)
+      }
+    ]
+  });
 };
 
 const createOrRestartDraft = (input: { existing: LandingRecord | null; content: LandingContent; slug: string; topic: string }) => {
@@ -144,6 +206,21 @@ export const startLiveLanding = async (topic: string, onStage?: PipelineStageRep
 
   await reportStage(onStage, "researching", "Gathering current sources, facts, numbers, and image candidates.");
   const research = await runResearch(topic);
+  const topicSupport = evaluateResearchTopicSupport(topic, research);
+  if (!topicSupport.supported) {
+    const blockedReason = topicSupport.reason;
+    await reportStage(onStage, "blocked", blockedReason);
+    const blockedContent = blockedUnsupportedTopicLanding({
+      topic,
+      slug,
+      reason: blockedReason,
+      sources: research.sources
+    });
+    if (existing && retryableStatuses.has(existing.status)) {
+      return updateLandingContent(existing.id, blockedContent, "blocked");
+    }
+    return createLanding(blockedContent);
+  }
   await reportStage(onStage, "writing", `Building the editorial brief from ${research.sources.length} sources and ${research.facts.length} sourced facts.`);
   const writing = await runWriter(research);
   if (createFlow.has("designStyle")) {

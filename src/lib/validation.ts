@@ -1,4 +1,5 @@
 import type { CriticResult, LandingContent } from "./types";
+import { evaluateLandingTopicSupport } from "./topic-support";
 
 const sectionWordCount = (body: string) => body.split(/\s+/).filter(Boolean).length;
 const forbiddenMetaPatterns = [
@@ -15,6 +16,11 @@ const forbiddenMetaPatterns = [
 export const validateLandingContent = (content: LandingContent): CriticResult => {
   const issues: string[] = [];
   const sourceUrls = new Set(content.sources.map(source => source.url));
+  const topicSupport = evaluateLandingTopicSupport(content);
+
+  if (!topicSupport.supported) {
+    issues.push(`topic: ${topicSupport.reason} Fix: attach a direct source for the exact event or block publication until the event is verified.`);
+  }
 
   if (!content.headline || content.headline.length < 12) {
     issues.push("headline: Add a specific, publish-ready headline of at least 12 characters that names the story and the main action.");
@@ -120,12 +126,17 @@ export const validateLandingContent = (content: LandingContent): CriticResult =>
   }
 
   const approved = issues.length === 0;
+  const severity = approved
+    ? "approved"
+    : topicSupport.supported ? "changes_requested" : "blocked";
   return {
     approved,
-    severity: approved ? "approved" : "changes_requested",
+    severity,
     issues,
     summary: approved
       ? "Approved for direct publishing."
-      : `Changes requested before publishing: ${issues.join(" ")}`
+      : severity === "blocked"
+        ? `Blocked before publishing: ${issues.join(" ")}`
+        : `Changes requested before publishing: ${issues.join(" ")}`
   };
 };
