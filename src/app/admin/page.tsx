@@ -1,6 +1,7 @@
 import { AdminAgentEditor } from "./AdminAgentEditor";
 import styles from "./admin.module.css";
 import { listEditableEntries } from "@/lib/admin-agents";
+import { appRelease } from "@/lib/build-info";
 import { env } from "@/lib/config";
 import { getPipelineConfig } from "@/lib/pipeline-config";
 
@@ -17,6 +18,7 @@ export default async function AdminPage() {
         <div className={styles.heroEyebrowRow}>
           <p>Admin Backend</p>
           <span className={styles.heroStatus}>{hasAccess ? "Open in local mode" : "Token required"}</span>
+          <span className={styles.heroStatus}>Release {appRelease}</span>
         </div>
         <h1>Control prompts, flow order, and live pipeline behavior from one screen.</h1>
         <span>
